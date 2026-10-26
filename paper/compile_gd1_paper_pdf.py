@@ -372,8 +372,8 @@ def build_pdf():
     
     # Figure 2 (v46)
     story.append(Spacer(1, 6))
-    if os.path.exists("D:/ARGON/v46_orbital_phase_confirmation.png"):
-        story.append(Image("D:/ARGON/v46_orbital_phase_confirmation.png", width=504, height=195.0))
+    if os.path.exists("D:/ARGON/v46_multi_epoch_check.png"):
+        story.append(Image("D:/ARGON/v46_multi_epoch_check.png", width=504, height=195.0))
         story.append(Paragraph("<b>Figure 2:</b> Multi-Epoch Spectroscopic Check (v46). (a) Outlier 13 zero-point crossover (+20.6 km/s, 3.50 sigma) and Star 4 cold-core exit (-5.8 km/s, 2.37 sigma). (b) Epistemic resolution progression across v43 to v46.", caption_style))
 
     story.append(PageBreak())

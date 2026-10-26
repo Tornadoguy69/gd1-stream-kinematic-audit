@@ -9,7 +9,7 @@ arxiv_files = [
     "gd1_stream_kinematic_audit.tex",
     "gd1_stream_kinematic_audit.pdf",
     "v45_physical_attribution.png",
-    "v46_orbital_phase_confirmation.png",
+    "v46_multi_epoch_check.png",
     "v47_kinematic_confrontation.png",
     "nibauer_bin_comparison.csv",
     "sdss_desi_empirical_crossmatches.csv"
