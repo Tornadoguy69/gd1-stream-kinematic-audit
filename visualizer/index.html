@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GD-1 — Definitive Phase Space & Fundamental Physics Audit (v43 → v47)</title>
+  <title>GD-1 — Definitive Phase Space & Fundamental Physics Audit (v43 → v48)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -278,6 +278,11 @@
       <button onclick="setStage('v47', 4)" class="dock-btn px-3.5 py-2 rounded-full text-xs font-medium text-white/55 hover:text-white whitespace-nowrap flex items-center gap-1.5">
         <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-violet-400/20 text-violet-300">v47</span>
         <span>Nibauer Bins</span>
+      </button>
+
+      <button onclick="setStage('v48', 5)" class="dock-btn px-3.5 py-2 rounded-full text-xs font-medium text-white/55 hover:text-white whitespace-nowrap flex items-center gap-1.5">
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300">v48</span>
+        <span>Spur Tensor</span>
       </button>
     </nav>
 
@@ -1219,6 +1224,44 @@
           }
         });
         setV47BinaryFilter(state.v47BinaryCleaned);
+      } else if (stageKey === 'v48') {
+        state.planeY.target = mapPToY(0.50);
+        state.planeOpacity.target = 0.20;
+        state.sdssOpacity.target = 0.0;
+        state.mondOpacity.target = 0.0;
+        cutPlaneMat.uniforms.uColor.value.setHex(0x10b981);
+
+        // Zoom directly into Spur Bin [-40, -20] deg
+        state.camPos.set(-8, 8, 22);
+        state.camTarget.set(mapPhiToX(-30.0) * 0.45, mapPToY(0.85), 0);
+        state.camTransitioning = true;
+
+        document.getElementById('stage-dot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
+        document.getElementById('stage-eyebrow').textContent = 'STAGE 06 // v48 SPUR-CORE ANISOTROPY TENSOR';
+        document.getElementById('stage-title').textContent = 'The 12.5x Cross-Track Anisotropy Paradox';
+        document.getElementById('stage-subtitle').textContent =
+          'Zoomed into [-40 deg, -20 deg]. Cross-track proper motion dispersion is remarkably cold (sigma_mu,phi2 = 0.77 km/s), while line-of-sight velocity is 12.5x more excited in kinetic energy (sigma_LOS = 2.72 km/s). This severe 1D anisotropy rules out 3D isotropic subhalo shocks. Deconvolving the 9 moderate-phase shoulder binaries (cold proper motions, z_tan <= 1.0 sigma) collapses the spur to ~1.8 km/s, matching the stream core.';
+
+        document.getElementById('m1-label').textContent = 'LOS DISPERSION';
+        document.getElementById('m1-val').textContent = '2.72';
+        document.getElementById('m1-sub').textContent = 'Raw 3.32 -> 2.72 km/s';
+
+        document.getElementById('m2-label').textContent = 'CROSS-TRACK DISPERSION';
+        document.getElementById('m2-val').textContent = '0.77';
+        document.getElementById('m2-sub').textContent = 'sigma_LOS^2 / sigma_mu2^2 = 12.5x Anisotropy';
+
+        document.getElementById('m3-label').textContent = 'EPISTEMIC STATUS';
+        document.getElementById('m3-val').textContent = '1.88';
+        document.getElementById('m3-badge').className = 'mono text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30';
+        document.getElementById('m3-badge').textContent = 'OUTCOME A CONFIRMED';
+        document.getElementById('m3-sub').textContent = 'Deconvolves to ~1.8 km/s';
+        document.getElementById('ax-y').textContent = 'Y // THIN-STREAM PROBABILITY P_THIN (Zoomed into Spur Bin [-40 deg, -20 deg])';
+
+        meta.forEach((m, i) => { streamTargetY[i] = mapPToY(m.pVal); });
+        tailNodes.forEach(n => {
+          n.springY.target = mapPToY(n.star.p_v4);
+          n.springZ.target = mapVelToZ(n.star.dv_desi);
+        });
       }
     }
 
