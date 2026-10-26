@@ -1,0 +1,14 @@
+{
+  "audit_target": "GD-1 [-40, -20] deg Spur/Gap Bin",
+  "baseline_dispersion_kms": 2.724965536115816,
+  "without_pink_star_kms": 2.6785350529695804,
+  "without_two_epoch_vars_kms": 2.661730622696003,
+  "deconvolved_20_kms": 2.113418012679248,
+  "deconvolved_17_kms": 1.9353823712879776,
+  "deconvolved_15_kms": 1.543572699935026,
+  "spatial_core_dispersion_kms": 2.4475820678392464,
+  "offtrack_spur_dispersion_kms": 2.7623505203947243,
+  "high_purity_core_kms": 2.530762420709099,
+  "anisotropy_ratio_R_aniso": 0.3863860002203829,
+  "verdict": "Outcome A: Spur heating is predominantly driven by sub-2.5 sigma cold-PM binaries and diffuse off-track envelope stars, ruling out isotropic single-subhalo heating."
+}
