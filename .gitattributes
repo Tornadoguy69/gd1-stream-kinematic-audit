@@ -1,0 +1,6 @@
+# Declare binary files so git never modifies line endings
+*.pdf binary
+*.png binary
+*.mp4 binary
+*.fits binary
+*.zip binary

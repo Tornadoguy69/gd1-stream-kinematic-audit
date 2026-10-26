@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "title": "The GD-1 Stellar Stream Kinematic Tail: Threshold Fragility, Spectroscopic Binarity, and Kinematics across the Spur in DESI DR2",
+    "upload_type": "dataset",
+    "description": "<p>This repository contains the complete empirical data, reproduction code, verification test suites, publication figures, interactive phase-space visualizer, and manuscript for the kinematic audit of the GD-1 stellar stream in DESI DR2 (Research v43 &rarr; v47).</p><p><strong>Key Scientific Results:</strong></p><ul><li><strong>Threshold Fragility (v43):</strong> Demonstrates that conventional hard probability thresholding (P_thin &ge; 0.90) in the DESI DR2 catalog is statistically fragile: a single borderline star (Star 28) shifting by &Delta;P = &minus;0.0166 flips global significance across &alpha; = 0.05 (p = 0.0043 &rarr; 0.0539).</li><li><strong>Continuous Bayesian Scoring (v44):</strong> Continuous scoring (T_cont = 27.82, p = 0.0012) confirms the continuous tail statistic remains detectable without step-function artifacts; an audit of Star 28's 14 immediate neighbors (&plusmn;3&deg;) reveals they are dynamically cold (&minus;1.40 km/s, &minus;0.25&sigma;), showing no evidence for a localized single-subhalo collision dipole.</li><li><strong>Velocity Anisotropy Audit (v45):</strong> Combining DESI radial velocities with Gaia DR3 proper motions reveals extreme velocity anisotropy (R_aniso = 0.1613, 6.2&times; radial dominance), contradicting 3D isotropic heating. Exactly 9 stars (78.5% of tail energy) possess cold 2D proper motions (z_tan &le; 1.36&sigma;) and nominal single-star Gaia astrometry (RUWE &approx; 1.01). Subtracting them collapses the residual tail score to null expectation (p_residual = 0.7727).</li><li><strong>Multi-Epoch Spectroscopic Variability (v46):</strong> Archival SDSS DR17 spectra show multi-epoch velocity variability across surveys. Calibrated against empirical cross-survey dispersion (&sigma;_emp &approx; 6.98 km/s), thin stream member Gaia DR3 804386042407893376 in the spur bin exhibited a &Delta;V = +28.64 &plusmn; 7.17 km/s shift (&approx; 3.5&sigma;_emp, an independent recovery of the ~30 km/s variable noted in Section II of Nibauer et al. 2026), while Outlier 13 in the diffuse cocoon envelope showed &Delta;V = +20.60 &plusmn; 5.88 km/s (&approx; 2.4&sigma;_emp), Star 4 showed a modest drift (&approx; 1.4&sigma;_emp, consistent with noise), and Star 28 is dynamically constant (0.24&sigma;).</li><li><strong>Spatial Kinematics and Confrontation with Nibauer et al. (v47):</strong> Subtracting candidate binaries yields an intrinsic core dispersion of &sigma;_int = 1.88 (+0.19 / -0.18) km/s (95% upper limit 2.27 km/s, a 17.1% like-for-like reduction). Direct bin-by-bin confrontation with Nibauer et al. (2026) reveals that DESI DR2 is consistent with peak dispersion in the gap/spur bin ([-40, -20]&deg;, 3.32 to 2.72 km/s), though the elevation over the trailing (1.87 km/s) and leading (1.57 km/s) arms is modest (~1.5&ndash;2&sigma;). This localized spur excess could stem from compact subhalo perturbations, diffuse cocoon contamination, or undetected binaries, deferring definitive forward modeling to future work.</li></ul>",
+    "creators": [
+      {
+        "name": "Tornado guy",
+        "affiliation": "Independent Researcher",
+        "orcid": ""
+      }
+    ],
+    "access_right": "open",
+    "license": "CC-BY-4.0",
+    "keywords": [
+      "stellar streams",
+      "GD-1",
+      "dark matter",
+      "spectroscopic binary stars",
+      "DESI DR2",
+      "Gaia DR3",
+      "SDSS DR17",
+      "radial velocity",
+      "Galactic archaeology"
+    ],
+    "communities": [
+      {
+        "identifier": "zenodo"
+      },
+      {
+        "identifier": "astronomy"
+      }
+    ],
+    "related_identifiers": [
+      {
+        "identifier": "10.5281/zenodo.19258455",
+        "relation": "isDerivedFrom",
+        "resource_type": "dataset"
+      }
+    ],
+    "publication_date": "2026-10-26"
+  }
+}

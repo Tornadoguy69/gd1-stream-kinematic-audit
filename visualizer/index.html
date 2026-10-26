@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GD-1 — Definitive Phase Space & Fundamental Physics Audit (v43 → v47)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #020205;
+      font-family: var(--font-sans);
+      color: #f4f4f6;
+    }
+    #webgl-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      cursor: grab;
+    }
+    #webgl-canvas:active {
+      cursor: grabbing;
+    }
+    .vignette-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background:
+        radial-gradient(circle at 50% 48%, rgba(2, 2, 5, 0) 44%, rgba(2, 2, 5, 0.88) 100%),
+        linear-gradient(180deg, rgba(2, 2, 5, 0.55) 0%, transparent 15%, transparent 82%, rgba(2, 2, 5, 0.72) 100%);
+    }
+    .grain-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0.026;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+    .glass-pill {
+      background: rgba(10, 12, 19, 0.66);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.085);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .mono {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .dock-btn {
+      position: relative;
+      z-index: 2;
+      transition: color 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #dock-glider {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 4px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 1;
+      transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), width 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    input[type="range"].micro-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 170px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"].micro-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #34d399;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(52, 211, 153, 0.9);
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    input[type="range"].micro-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+    .anchor-3d {
+      position: absolute;
+      pointer-events: auto;
+      cursor: pointer;
+      transform: translate(-50%, -100%);
+      padding-bottom: 12px;
+      z-index: 10;
+      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: transform, left, top, opacity;
+    }
+    .anchor-3d:hover .callout-card {
+      border-color: rgba(255, 255, 255, 0.36);
+      transform: translateY(-2px) scale(1.02);
+    }
+    .callout-card {
+      transition: border-color 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D WebGL Canvas -->
+  <div id="webgl-canvas"></div>
+  <div class="vignette-overlay"></div>
+  <div class="grain-overlay"></div>
+
+  <!-- 3D Projected Callout Layer -->
+  <div id="overlay-3d" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+  <div class="fixed right-6 bottom-24 z-20 pointer-events-none max-w-xs text-right mono text-[9.5px] leading-snug text-white/40">
+    Preprint draft · not peer reviewed<br>
+    Labelled stars use catalog values. Background dots are simulated to match the measured density and dispersion, not individual catalog stars.
+  </div>
+
+  <!-- TOP HUD: Narrative Header (Left) & Verified Telemetry (Right) -->
+  <header class="fixed top-5 left-6 right-6 z-20 flex flex-wrap items-start justify-between gap-4 pointer-events-none">
+    
+    <!-- Top-Left Narrative Block -->
+    <div class="pointer-events-auto flex flex-col gap-1.5 max-w-lg">
+      <div class="inline-flex items-center gap-2 glass-pill px-3 py-1 rounded-full w-fit">
+        <span id="stage-dot" class="w-1.5 h-1.5 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185] transition-all duration-500"></span>
+        <span id="stage-eyebrow" class="mono text-[10px] tracking-[0.18em] uppercase text-white/75">
+          STAGE 01 // v43 CATALOG BOUNDARY AUDIT
+        </span>
+      </div>
+      <h1 id="stage-title" class="text-lg sm:text-xl font-medium tracking-tight text-white/95 pl-0.5">
+        The 0.90 Step-Function Cliff
+      </h1>
+      <p id="stage-subtitle" class="text-xs text-white/55 pl-0.5 font-light leading-relaxed">
+        Five stars cross membership boundaries between Zenodo v3 and v4. Star 28 (−3.56σ) shifts by ΔP = −0.0166 (0.9106 → 0.8940), moving the hard-cut tail p-value 12.5× (0.0043 → 0.0539) across α = 0.05.
+      </p>
+    </div>
+
+    <!-- Top-Right Telemetry Cluster -->
+    <div class="glass-pill px-5 py-3.5 rounded-2xl pointer-events-auto flex items-center gap-5 sm:gap-7">
+      
+      <div class="flex flex-col items-end">
+        <span id="m1-label" class="mono text-[9.5px] tracking-[0.15em] uppercase text-white/40">GLOBAL P-VALUE</span>
+        <div class="flex items-baseline gap-1.5 mt-1">
+          <span id="m1-val" class="mono text-lg sm:text-xl font-medium text-amber-300">0.0539</span>
+        </div>
+        <span id="m1-sub" class="mono text-[9.5px] text-white/40 mt-0.5">95% CI [0.0495, 0.0583]</span>
+      </div>
+
+      <div class="h-8 w-[1px] bg-white/10"></div>
+
+      <div class="flex flex-col items-end">
+        <span id="m2-label" class="mono text-[9.5px] tracking-[0.15em] uppercase text-white/40">STAR 28 P_THIN</span>
+        <div class="flex items-baseline gap-1.5 mt-1">
+          <span id="m2-val" class="mono text-lg sm:text-xl font-medium text-white">0.8940</span>
+          <span id="m2-tag" class="mono text-[10px] text-rose-400">OUT</span>
+        </div>
+        <span id="m2-sub" class="mono text-[9.5px] text-white/40 mt-0.5">z_v = −3.56σ · z_tan = 0.65σ</span>
+      </div>
+
+      <div class="h-8 w-[1px] bg-white/10 hidden sm:block"></div>
+
+      <div class="hidden sm:flex flex-col items-end">
+        <span id="m3-label" class="mono text-[9.5px] tracking-[0.15em] uppercase text-white/40">PHYSICAL VERDICT</span>
+        <div class="mt-1">
+          <span id="m3-badge" class="mono text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 transition-all duration-500">
+            THRESHOLD FRAGILE
+          </span>
+        </div>
+        <span id="m3-sub" class="mono text-[9.5px] text-white/40 mt-1">5 Boundary-Crossing Stars</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- BOTTOM HUD: Contextual Controls + 5-Stage Choreography Dock -->
+  <footer class="fixed bottom-5 left-6 right-6 z-20 flex flex-col items-center gap-2.5 pointer-events-none">
+    
+    <!-- Contextual Sub-Bar: Changes dynamically by Stage -->
+    <div id="sub-controls" class="glass-pill px-4 py-1.5 rounded-full pointer-events-auto flex items-center gap-4 text-[11px] text-white/70 transition-all duration-300">
+      
+      <!-- Stage 1 (v43) Release Switcher -->
+      <div id="ctrl-v43" class="flex items-center gap-1.5">
+        <span class="mono text-[9.5px] uppercase tracking-wider text-white/40 mr-1">Catalog State:</span>
+        <button id="btn-rel-v3" onclick="setV43Release('v3')" class="mono text-[10px] px-2.5 py-1 rounded-full hover:text-white text-white/55 transition">
+          Zenodo v3 (0.9106 · IN)
+        </button>
+        <button id="btn-rel-v4" onclick="setV43Release('v4')" class="mono text-[10px] px-2.5 py-1 rounded-full bg-white/15 text-white transition">
+          Zenodo v4 (0.8940 · OUT)
+        </button>
+        <button id="btn-rel-marg" onclick="setV43Release('marg')" class="mono text-[10px] px-2.5 py-1 rounded-full hover:text-white text-white/55 transition">
+          v4 Marginal (0.9166 · IN)
+        </button>
+      </div>
+
+      <!-- Stage 4 (v46) Two-epoch SDSS vs DESI toggle -->
+      <div id="ctrl-v46" class="hidden items-center gap-3">
+        <button id="btn-play-epoch" onclick="toggleEpochPlay()" class="w-5 h-5 rounded-full bg-emerald-400/20 border border-emerald-400/40 text-emerald-300 flex items-center justify-center text-[9px]">
+          ❚❚
+        </button>
+        <span class="mono text-[9.5px] uppercase tracking-wider text-white/50">SDSS DR17 → DESI DR2</span>
+        <input id="epoch-slider" type="range" min="2004.0" max="2022.0" step="0.05" value="2021.2" class="micro-slider" oninput="onScrubEpoch(this.value)" />
+        <span id="epoch-readout" class="mono text-[11px] text-emerald-300 font-medium w-12 text-right">2021.2</span>
+        <span class="mono text-[9.5px] text-white/35 hidden md:inline">(2 measurements per star · no orbit fitted)</span>
+      </div>
+
+      <!-- Stage 5 (v47) Binary Cleansing & Fundamental Physics Switcher -->
+      <div id="ctrl-v47" class="hidden items-center gap-2">
+        <span class="mono text-[9.5px] uppercase tracking-wider text-white/40 mr-1">Sample:</span>
+        <button id="btn-v47-clean" onclick="setV47BinaryFilter(true)" class="mono text-[10px] px-2.5 py-1 rounded-full bg-violet-500/25 border border-violet-400/40 text-violet-200 transition">
+          Candidate binaries removed
+        </button>
+        <button id="btn-v47-raw" onclick="setV47BinaryFilter(false)" class="mono text-[10px] px-2.5 py-1 rounded-full hover:text-white text-white/55 transition">
+          Raw DESI DR2
+        </button>
+      </div>
+
+      <!-- Stage 2/3 Info Pill -->
+      <div id="ctrl-info" class="hidden items-center gap-3 mono text-[10px] text-white/60">
+        <span id="ctrl-info-text">14 Active Contributors (|z_v| &gt; 2.5σ) · 531 Cold Stream Core Candidates</span>
+      </div>
+
+      <div class="h-3 w-[1px] bg-white/10"></div>
+      <button onclick="resetCamera()" class="mono text-[10px] uppercase tracking-wider text-white/55 hover:text-white transition">
+        Reset View
+      </button>
+    </div>
+
+    <!-- 5-Stage Master Choreography Dock (v43 -> v47) -->
+    <nav id="segmented-dock" class="glass-pill p-1 rounded-full pointer-events-auto relative flex items-center overflow-x-auto max-w-full">
+      <div id="dock-glider"></div>
+
+      <button onclick="setStage('v43', 0)" class="dock-btn px-3.5 py-2 rounded-full text-xs font-medium text-white whitespace-nowrap flex items-center gap-1.5">
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/80">v43</span>
+        <span>Threshold Cliff</span>
+      </button>
+
+      <button onclick="setStage('v44', 1)" class="dock-btn px-3.5 py-2 rounded-full text-xs font-medium text-white/55 hover:text-white whitespace-nowrap flex items-center gap-1.5">
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/60">v44</span>
+        <span>Continuous &amp; Spatial</span>
+      </button>
+
+      <button onclick="setStage('v45', 2)" class="dock-btn px-3.5 py-2 rounded-full text-xs font-medium text-white/55 hover:text-white whitespace-nowrap flex items-center gap-1.5">
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/60">v45</span>
+        <span>1D Anisotropy (R = 0.16)</span>
+      </button>
+
+      <button onclick="setStage('v46', 3)" class="dock-btn px-3.5 py-2 rounded-full text-xs font-medium text-white/55 hover:text-white whitespace-nowrap flex items-center gap-1.5">
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/60">v46</span>
+        <span>SDSS → DESI Check</span>
+      </button>
+
+      <button onclick="setStage('v47', 4)" class="dock-btn px-3.5 py-2 rounded-full text-xs font-medium text-white/55 hover:text-white whitespace-nowrap flex items-center gap-1.5">
+        <span class="mono text-[10px] px-1.5 py-0.5 rounded bg-violet-400/20 text-violet-300">v47</span>
+        <span>Nibauer Bins</span>
+      </button>
+    </nav>
+
+  </footer>
+
+  <!-- Bottom-Left Axis Legend -->
+  <div id="axis-legend" class="fixed left-6 bottom-5 z-10 pointer-events-none hidden lg:flex flex-col gap-0.5 mono text-[9.5px] tracking-wider uppercase text-white/30">
+    <span id="ax-x">X // STREAM LONGITUDE φ₁ (−60° → 0°)</span>
+    <span id="ax-y">Y // THIN-STREAM PROBABILITY P_THIN (0 → 1)</span>
+    <span id="ax-z">Z // TRACK-SUBTRACTED RADIAL VELOCITY ΔV_GSR (km s⁻¹)</span>
+  </div>
+
+  <script>
+    // ============================================================================
+    // 1. EXACT EMPIRICAL DATA TABLES (FROM v43, v44, v45, v46, v47 ARCHIVES)
+    // ============================================================================
+    const TAIL_CATALOG = [
+      {
+        rank: 1, id: "804436551223805568", label: "Star 28",
+        phi1: -32.93, dv_desi: -17.88, err_desi: 4.27,
+        has_sdss: true, dv_sdss: -20.28, err_sdss: 7.27, yr_sdss: 2009.31, yr_desi: 2021.2, shift_sig: "0.24σ cal.",
+        zv: -3.56, ztan: 0.65, ruwe: 0.996, feh: -2.37,
+        p_v3: 0.9106, p_v4: 0.8940, p_marg: 0.9166, p_cocoon: 0.106,
+        ti: 5.724, pct: 20.6, type: "A", hero: true, boundaryCross: true
+      },
+      {
+        rank: 2, id: "637140290779827072", label: "Outlier 2",
+        phi1: -57.93, dv_desi: -18.85, err_desi: 3.52,
+        has_sdss: false,
+        zv: -4.30, ztan: 1.36, ruwe: 0.910, feh: -2.64,
+        p_v3: 0.3120, p_v4: 0.3090, p_marg: 0.3140, p_cocoon: 0.488,
+        ti: 3.789, pct: 13.6, type: "A", hero: true, boundaryCross: false
+      },
+      {
+        rank: 3, id: "1577287126973726592", label: "Outlier 3",
+        phi1: -3.25, dv_desi: -25.39, err_desi: 6.75,
+        has_sdss: false,
+        zv: -3.49, ztan: 1.11, ruwe: 1.038, feh: -2.21,
+        p_v3: 0.6180, p_v4: 0.6130, p_marg: 0.6190, p_cocoon: 0.297,
+        ti: 3.626, pct: 13.0, type: "A", hero: false, boundaryCross: false
+      },
+      {
+        rank: 4, id: "794510439424008832", label: "Boundary 2",
+        phi1: -42.26, dv_desi: 8.31, err_desi: 1.18,
+        has_sdss: false,
+        zv: 3.12, ztan: 1.08, ruwe: 1.069, feh: -2.67,
+        p_v3: 0.8040, p_v4: 0.7910, p_marg: 0.8020, p_cocoon: 0.208,
+        ti: 2.761, pct: 9.9, type: "A", hero: false, boundaryCross: true
+      },
+      {
+        rank: 5, id: "831423209431680384", label: "Cocoon 5",
+        phi1: -24.55, dv_desi: -18.30, err_desi: 4.29,
+        has_sdss: false,
+        zv: -3.63, ztan: 2.76, ruwe: 1.007, feh: -2.39,
+        p_v3: 0.3300, p_v4: 0.3260, p_marg: 0.3280, p_cocoon: 0.512,
+        ti: 2.257, pct: 8.1, type: "B", hero: false, boundaryCross: false
+      },
+      {
+        rank: 6, id: "829645264771612800", label: "Star 4",
+        phi1: -27.35, dv_desi: -7.85, err_desi: 0.79,
+        has_sdss: true, dv_sdss: -2.06, err_sdss: 2.31, yr_sdss: 2009.15, yr_desi: 2021.2, shift_sig: "≈1.4σ cal.",
+        zv: -2.89, ztan: 1.16, ruwe: 1.098, feh: -2.03,
+        p_v3: 0.8920, p_v4: 0.9210, p_marg: 0.9180, p_cocoon: 0.079,
+        ti: 1.939, pct: 7.0, type: "A", hero: true, boundaryCross: true
+      },
+      {
+        rank: 7, id: "1566540564752850816", label: "Cocoon 7",
+        phi1: -1.90, dv_desi: 22.88, err_desi: 5.60,
+        has_sdss: false,
+        zv: 3.78, ztan: 2.51, ruwe: 0.984, feh: -2.29,
+        p_v3: 0.2400, p_v4: 0.2360, p_marg: 0.2380, p_cocoon: 0.490,
+        ti: 1.899, pct: 6.8, type: "B", hero: false, boundaryCross: false
+      },
+      {
+        rank: 8, id: "794347947923184640", label: "Outlier 8",
+        phi1: -43.79, dv_desi: -14.52, err_desi: 2.47,
+        has_sdss: false,
+        zv: -4.05, ztan: 1.05, ruwe: 1.032, feh: -2.12,
+        p_v3: 0.1650, p_v4: 0.1610, p_marg: 0.1630, p_cocoon: 0.380,
+        ti: 1.641, pct: 5.9, type: "A", hero: false, boundaryCross: false
+      },
+      {
+        rank: 9, id: "803361336230087936", label: "Cocoon 9",
+        phi1: -36.14, dv_desi: -10.39, err_desi: 1.33,
+        has_sdss: true, dv_sdss: -12.45, err_sdss: 9.06, yr_sdss: 2004.07, yr_desi: 2022.1, shift_sig: "0.29σ cal.",
+        zv: -3.57, ztan: 2.05, ruwe: 0.988, feh: -2.66,
+        p_v3: 0.2450, p_v4: 0.2420, p_marg: 0.2440, p_cocoon: 0.744,
+        ti: 1.579, pct: 5.7, type: "B", hero: true, boundaryCross: false
+      },
+      {
+        rank: 10, id: "839367829479258240", label: "Outlier 10",
+        phi1: -18.48, dv_desi: 10.55, err_desi: 2.90,
+        has_sdss: false,
+        zv: 2.84, ztan: 0.44, ruwe: 1.000, feh: -1.81,
+        p_v3: 0.6500, p_v4: 0.6470, p_marg: 0.6490, p_cocoon: 0.190,
+        ti: 1.161, pct: 4.2, type: "A", hero: false, boundaryCross: false
+      },
+      {
+        rank: 11, id: "1577024756011421696", label: "Outlier 11",
+        phi1: -2.74, dv_desi: 10.03, err_desi: 2.82,
+        has_sdss: false,
+        zv: 2.74, ztan: 0.88, ruwe: 0.965, feh: -1.96,
+        p_v3: 0.8400, p_v4: 0.8360, p_marg: 0.8380, p_cocoon: 0.140,
+        ti: 1.068, pct: 3.8, type: "A", hero: false, boundaryCross: false
+      },
+      {
+        rank: 12, id: "803407064742685568", label: "Cocoon 12",
+        phi1: -36.24, dv_desi: 9.67, err_desi: 2.59,
+        has_sdss: false,
+        zv: 2.77, ztan: 2.50, ruwe: 1.048, feh: -2.21,
+        p_v3: 0.1250, p_v4: 0.1210, p_marg: 0.1230, p_cocoon: 0.410,
+        ti: 0.174, pct: 0.6, type: "B", hero: false, boundaryCross: false
+      },
+      {
+        rank: 13, id: "796893149840353408", label: "Outlier 13",
+        phi1: -39.46, dv_desi: 6.80, err_desi: 1.18,
+        has_sdss: true, dv_sdss: -13.80, err_sdss: 5.76, yr_sdss: 2016.17, yr_desi: 2021.2, shift_sig: "≈2.4σ cal.",
+        zv: 2.57, ztan: 1.02, ruwe: 1.009, feh: -2.68,
+        p_v3: 0.3350, p_v4: 0.3300, p_marg: 0.3320, p_cocoon: 0.667,
+        ti: 0.123, pct: 0.4, type: "A", hero: true, boundaryCross: false
+      },
+      {
+        rank: 14, id: "840450504835587328", label: "Cocoon 14",
+        phi1: -14.60, dv_desi: -20.08, err_desi: 6.12,
+        has_sdss: false,
+        zv: -2.99, ztan: 4.14, ruwe: 1.020, feh: -2.54,
+        p_v3: 0.0320, p_v4: 0.0300, p_marg: 0.0310, p_cocoon: 0.615,
+        ti: 0.081, pct: 0.3, type: "B", hero: false, boundaryCross: false
+      },
+      {
+        // NOT one of the 14 tail stars. Thin-stream member near the spur that sits close to the
+        // track in DESI DR2 but differs from SDSS DR17 (specObjID 5136593237855983616, MJD 55570).
+        rank: 15, id: "804386042407893376", label: "Spur star",
+        phi1: -33.77, dv_desi: 7.47, err_desi: 1.25,
+        has_sdss: true, dv_sdss: -21.17, err_sdss: 5.78, yr_sdss: 2011.01, yr_desi: 2021.2, shift_sig: "≈3.5σ cal.",
+        zv: 1.58, ztan: 0.0, ruwe: null, feh: null,
+        p_v3: 0.961, p_v4: 0.961, p_marg: 0.961, p_cocoon: null,
+        ti: 0.0, pct: 0.0, type: "S", hero: true, boundaryCross: false
+      }
+    ];
+    // Velocity dispersion (km/s) in the three Nibauer et al. (2026) bins, DESI DR2
+    const NIBAUER_BINS = [
+      { min: -60, max: -40, raw: 2.33, clean: 1.87 },
+      { min: -40, max: -20, raw: 3.32, clean: 2.72 },
+      { min: -20, max: 0,   raw: 1.73, clean: 1.57 }
+    ];
+    const binFor = (phi) => NIBAUER_BINS.find(b => phi >= b.min && phi < b.max) || NIBAUER_BINS[2];
+
+    // Empirical 10-bin spatial density profile from v44 report (-60 deg to 0 deg)
+    const EMPIRICAL_PHI_BINS = [
+      { min: -60, max: -54, count: 68, meanP: 0.829 },
+      { min: -54, max: -48, count: 64, meanP: 0.785 },
+      { min: -48, max: -42, count: 62, meanP: 0.740 },
+      { min: -42, max: -36, count: 55, meanP: 0.610 },
+      { min: -36, max: -30, count: 38, meanP: 0.354 }, // Central gap / spur region around Star 28
+      { min: -30, max: -24, count: 49, meanP: 0.580 },
+      { min: -24, max: -18, count: 52, meanP: 0.670 },
+      { min: -18, max: -12, count: 50, meanP: 0.695 },
+      { min: -12, max: -6,  count: 47, meanP: 0.710 },
+      { min: -6,  max: 0,   count: 46, meanP: 0.702 }
+    ];
+
+    // ============================================================================
+    // 2. CRITICALLY DAMPED SECOND-ORDER SPRING ENGINE & COORDINATE MAPPING
+    // ============================================================================
+    class DampedSpring {
+      constructor(val, stiffness = 110, damping = 18) {
+        this.cur = val;
+        this.target = val;
+        this.vel = 0;
+        this.stiffness = stiffness;
+        this.damping = damping;
+      }
+      step(dt) {
+        const force = (this.target - this.cur) * this.stiffness;
+        const drag = -this.vel * this.damping;
+        this.vel += (force + drag) * dt;
+        this.cur += this.vel * dt;
+        return this.cur;
+      }
+    }
+
+    const mapPhiToX = (phi) => ((phi + 30.0) / 30.0) * 34.0;
+    const mapPToY = (p) => (p - 0.5) * 22.0;
+    const mapZTanToY = (ztan) => ((ztan - 1.7) / 2.5) * 10.5;
+    const mapVelToZ = (dv) => (dv / 28.0) * 18.0;
+
+    let scene, camera, renderer, controls;
+    let streamPoints, streamGeo, streamTargetY, streamTargetZ;
+    let cutPlaneMesh, cutPlaneMat;
+    let mondSplitPlane, mondSplitMat;
+    let dispersionTubeMesh, dispersionTubeMat;
+    const tailNodes = [];
+    const sdssNodes = [];
+
+    const state = {
+      stage: 'v43',
+      v43Rel: 'v4',
+      v47BinaryCleaned: true,
+      epochYr: 2021.2,
+      playingEpoch: true,
+      planeY: new DampedSpring(mapPToY(0.90), 95, 17),
+      planeOpacity: new DampedSpring(0.92, 95, 17),
+      sdssOpacity: new DampedSpring(0.0, 95, 17),
+      mondOpacity: new DampedSpring(0.0, 95, 17),
+      tubeRadiusScale: new DampedSpring(1.0, 95, 17),
+      binaryNodeScale: new DampedSpring(1.0, 120, 16),
+      camPos: new THREE.Vector3(-8, 12, 34),
+      camTarget: new THREE.Vector3(mapPhiToX(-32.93) * 0.4, mapPToY(0.88), 0),
+      camTransitioning: false
+    };
+
+    // Deterministic PRNG for the 531 background cold-core stars
+    let seed = 23599156;
+    function rand() {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    }
+    function gauss() {
+      const u = Math.max(1e-6, rand());
+      const v = rand();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    // ============================================================================
+    // 3. WEBGL SCENE CONSTRUCTION
+    // ============================================================================
+    function initWebGL() {
+      const container = document.getElementById('webgl-canvas');
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 500);
+      camera.position.copy(state.camPos);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setClearColor(0x020205, 1);
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.055;
+      controls.maxDistance = 125;
+      controls.minDistance = 10;
+      controls.target.copy(state.camTarget);
+
+      renderer.domElement.addEventListener('pointerdown', () => {
+        state.camTransitioning = false;
+      });
+
+      buildArchitecturalGrid();
+      buildThresholdLaserPlane();
+      buildMondProgenitorSplitAndTube();
+      buildCalibratedStreamCloud();
+      buildEmpiricalTailStars();
+
+      setTimeout(() => moveDockGlider(0), 60);
+      setStage('v43', 0);
+    }
+
+    function buildArchitecturalGrid() {
+      const gridVerts = [];
+      const yFloor = mapPToY(0.0);
+      for (let phi = -60; phi <= 0; phi += 6) {
+        const x = mapPhiToX(phi);
+        gridVerts.push(x, yFloor, -18, x, yFloor, 18);
+      }
+      for (let v = -28; v <= 28; v += 7) {
+        const z = mapVelToZ(v);
+        gridVerts.push(-34, yFloor, z, 34, yFloor, z);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(gridVerts, 3));
+      scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.032
+      })));
+
+      // Cold Stream Track Spine (dV_GSR = -0.285 km/s at P_thin = 0.90)
+      const spineGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-34, mapPToY(0.90), 0),
+        new THREE.Vector3(34, mapPToY(0.90), 0)
+      ]);
+      scene.add(new THREE.Line(spineGeo, new THREE.LineBasicMaterial({
+        color: 0x38bdf8, transparent: true, opacity: 0.32
+      })));
+    }
+
+    function buildThresholdLaserPlane() {
+      const geo = new THREE.PlaneGeometry(72, 38, 1, 1);
+      geo.rotateX(-Math.PI / 2);
+
+      cutPlaneMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uOpacity: { value: 0.9 },
+          uColor: { value: new THREE.Color(0xf43f5e) }
+        },
+        vertexShader: `
+          varying vec3 vWorld;
+          void main() {
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorld = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vWorld;
+          uniform float uOpacity;
+          uniform vec3 uColor;
+          void main() {
+            vec2 norm = vec2(vWorld.x / 36.0, vWorld.z / 19.0);
+            float radialFade = 1.0 - smoothstep(0.55, 1.02, length(norm));
+            if (radialFade <= 0.001) discard;
+
+            vec2 grid = abs(fract(vWorld.xz * 0.25 - 0.5) - 0.5) / fwidth(vWorld.xz * 0.25);
+            float line = 1.0 - min(min(grid.x, grid.y), 1.0);
+
+            float alpha = (0.04 + line * 0.16) * radialFade * uOpacity;
+            gl_FragColor = vec4(uColor, alpha);
+          }
+        `
+      });
+
+      cutPlaneMesh = new THREE.Mesh(geo, cutPlaneMat);
+      cutPlaneMesh.position.y = mapPToY(0.90);
+      scene.add(cutPlaneMesh);
+    }
+
+    // Build v47 Fundamental Physics Visuals:
+    // 1. Bin-edge planes at phi1 = -40 and -20 deg (Nibauer et al. 2026 bins)
+    // 2. Intrinsic Velocity Dispersion Cylinder (sigma_int = 1.882 km/s vs 2.492 km/s raw)
+    function buildMondProgenitorSplitAndTube() {
+      // Vertical Split Plane at phi1 = -35.0 deg
+      const splitGeo = new THREE.PlaneGeometry(36, 24, 1, 1);
+      splitGeo.rotateY(Math.PI / 2);
+
+      mondSplitMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uOpacity: { value: 0.0 },
+          uColor: { value: new THREE.Color(0xa78bfa) }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          uniform float uOpacity;
+          uniform vec3 uColor;
+          void main() {
+            float d = length(vUv - vec2(0.5));
+            float fade = 1.0 - smoothstep(0.28, 0.5, d);
+            if (fade <= 0.001) discard;
+            vec2 g = abs(fract(vUv * 12.0 - 0.5) - 0.5) / fwidth(vUv * 12.0);
+            float line = 1.0 - min(min(g.x, g.y), 1.0);
+            gl_FragColor = vec4(uColor, (0.08 + line * 0.22) * fade * uOpacity);
+          }
+        `
+      });
+
+      mondSplitPlane = new THREE.Mesh(splitGeo, mondSplitMat);
+      mondSplitPlane.position.set(mapPhiToX(-40.0), mapPToY(0.75), 0);
+      scene.add(mondSplitPlane);
+      const edge2 = new THREE.Mesh(splitGeo, mondSplitMat);
+      edge2.position.set(mapPhiToX(-20.0), mapPToY(0.75), 0);
+      scene.add(edge2);
+
+      // Intrinsic Dispersion Tube along the high-purity spine (Y = mapPToY(0.93))
+      // Radius corresponds to 2 * sigma_int (95% confidence envelope)
+      const baseRadius = mapVelToZ(1.882 * 2.0);
+      const tubeGeo = new THREE.CylinderGeometry(baseRadius, baseRadius, 68, 36, 1, true);
+      tubeGeo.rotateZ(Math.PI / 2);
+
+      dispersionTubeMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+          uOpacity: { value: 0.0 },
+          uColor: { value: new THREE.Color(0x38bdf8) }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          void main() {
+            vUv = uv;
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          uniform float uOpacity;
+          uniform vec3 uColor;
+          void main() {
+            float fresnel = pow(1.0 - abs(vNormal.z), 1.8);
+            float rings = smoothstep(0.92, 1.0, sin(vUv.y * 120.0)) * 0.25;
+            gl_FragColor = vec4(uColor, (0.06 + fresnel * 0.18 + rings) * uOpacity);
+          }
+        `
+      });
+
+      dispersionTubeMesh = new THREE.Mesh(tubeGeo, dispersionTubeMat);
+      dispersionTubeMesh.position.set(0, mapPToY(0.93), mapVelToZ(-0.285));
+      scene.add(dispersionTubeMesh);
+    }
+
+    // 531 ILLUSTRATIVE background stars: simulated to match the measured density profile and per-bin dispersion
+    function buildCalibratedStreamCloud() {
+      const positions = [];
+      const colors = [];
+      const sizes = [];
+      const meta = [];
+
+      EMPIRICAL_PHI_BINS.forEach(bin => {
+        for (let k = 0; k < bin.count; k++) {
+          const phi1 = bin.min + rand() * (bin.max - bin.min);
+          const isHigh = rand() < bin.meanP;
+          const pVal = isHigh
+            ? Math.min(0.998, 0.90 + Math.pow(rand(), 1.5) * 0.098)
+            : Math.max(0.01, Math.pow(rand(), 1.8) * 0.88);
+
+          // Cold stream core dispersion (sigma_int = 1.882 km/s around mu = -0.285 km/s)
+          // ILLUSTRATIVE: simulated from the measured per-bin (binary-cleaned) dispersion, not catalog stars
+          const dv = -0.285 + Math.max(-8.0, Math.min(8.0, gauss() * binFor(phi1).clean));
+          const ztan = Math.abs(gauss() * 0.65 + 0.65);
+
+          const x = mapPhiToX(phi1);
+          const y = mapPToY(pVal);
+          const z = mapVelToZ(dv);
+          positions.push(x, y, z);
+
+          const col = new THREE.Color(pVal >= 0.90 ? 0x67e8f9 : 0x334155);
+          colors.push(col.r, col.g, col.b);
+          sizes.push(pVal >= 0.90 ? 2.6 : 1.5);
+          meta.push({ phi1, pVal, ztan, dv });
+        }
+      });
+
+      streamGeo = new THREE.BufferGeometry();
+      streamGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      streamGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      streamGeo.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1));
+
+      streamTargetY = new Float32Array(meta.length);
+      streamTargetZ = new Float32Array(meta.length);
+      meta.forEach((m, i) => { streamTargetZ[i] = mapVelToZ(m.dv); });
+      meta.forEach((m, i) => { streamTargetY[i] = mapPToY(m.pVal); });
+      streamGeo.userData.meta = meta;
+
+      const mat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        uniforms: {
+          uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+        },
+        vertexShader: `
+          attribute vec3 color;
+          attribute float aSize;
+          varying vec3 vColor;
+          uniform float uPixelRatio;
+          void main() {
+            vColor = color;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mv;
+            gl_PointSize = aSize * uPixelRatio * (38.0 / -mv.z);
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vColor;
+          void main() {
+            float d = length(gl_PointCoord - vec2(0.5));
+            if (d > 0.5) discard;
+            float glow = exp(-d * d * 16.0) * 0.72;
+            gl_FragColor = vec4(vColor, glow);
+          }
+        `
+      });
+
+      streamPoints = new THREE.Points(streamGeo, mat);
+      scene.add(streamPoints);
+    }
+
+    // Build the 14 Exact Tail Contributors + 3D Error Bars + SDSS DR17 Archival Counterparts
+    function buildEmpiricalTailStars() {
+      const overlay = document.getElementById('overlay-3d');
+
+      TAIL_CATALOG.forEach(star => {
+        const x = mapPhiToX(star.phi1);
+        const y = mapPToY(star.p_v4);
+        const z = mapVelToZ(star.dv_desi);
+
+        const hex = star.type === 'A' ? 0x34d399 : (star.type === 'S' ? 0xf472b6 : 0xfbbf24);
+
+        // 1. Primary DESI DR2 Sphere
+        const sphereGeo = new THREE.SphereGeometry(star.hero ? 0.46 : 0.28, 24, 24);
+        const sphereMat = new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 1.0 });
+        const mesh = new THREE.Mesh(sphereGeo, sphereMat);
+        mesh.position.set(x, y, z);
+        scene.add(mesh);
+
+        // 2. Halo Ring for Hero Stars
+        let ring = null;
+        if (star.hero) {
+          const ringGeo = new THREE.RingGeometry(0.72, 0.88, 36);
+          const ringMat = new THREE.MeshBasicMaterial({
+            color: hex, side: THREE.DoubleSide, transparent: true, opacity: 0.8
+          });
+          ring = new THREE.Mesh(ringGeo, ringMat);
+          mesh.add(ring);
+        }
+
+        // 3. 1D Radial Velocity Kick Tether (from Cold Track Z=0 to Star Z)
+        const tetherGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(x, y, 0),
+          new THREE.Vector3(x, y, z)
+        ]);
+        const tetherMat = new THREE.LineBasicMaterial({
+          color: hex, transparent: true, opacity: 0.42
+        });
+        const tether = new THREE.Line(tetherGeo, tetherMat);
+        scene.add(tether);
+
+        // 4. Exact DESI +/- 1 sigma_v 3D Error Bar along Z axis
+        const zErrLow = mapVelToZ(star.dv_desi - star.err_desi) - z;
+        const zErrHigh = mapVelToZ(star.dv_desi + star.err_desi) - z;
+        const errGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, zErrLow),
+          new THREE.Vector3(0, 0, zErrHigh),
+          new THREE.Vector3(-0.22, 0, zErrLow),
+          new THREE.Vector3(0.22, 0, zErrLow),
+          new THREE.Vector3(-0.22, 0, zErrHigh),
+          new THREE.Vector3(0.22, 0, zErrHigh)
+        ]);
+        const errMat = new THREE.LineBasicMaterial({
+          color: 0xffffff, transparent: true, opacity: 0.45
+        });
+        const errBar = new THREE.LineSegments(errGeo, errMat);
+        mesh.add(errBar);
+
+        // 5. Archival SDSS DR17 Ghost Marker & +/- 1 sigma_SDSS Error Bar (for the 4 matched stars)
+        let sdssGroup = null;
+        if (star.has_sdss) {
+          sdssGroup = new THREE.Group();
+          const zSdss = mapVelToZ(star.dv_sdss);
+          sdssGroup.position.set(x, y, zSdss);
+
+          const sRingGeo = new THREE.RingGeometry(0.32, 0.48, 28);
+          const sRingMat = new THREE.MeshBasicMaterial({
+            color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.0
+          });
+          const sRing = new THREE.Mesh(sRingGeo, sRingMat);
+          sdssGroup.add(sRing);
+
+          const sErrLow = mapVelToZ(star.dv_sdss - star.err_sdss) - zSdss;
+          const sErrHigh = mapVelToZ(star.dv_sdss + star.err_sdss) - zSdss;
+          const sErrGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, sErrLow),
+            new THREE.Vector3(0, 0, sErrHigh),
+            new THREE.Vector3(-0.25, 0, sErrLow),
+            new THREE.Vector3(0.25, 0, sErrLow),
+            new THREE.Vector3(-0.25, 0, sErrHigh),
+            new THREE.Vector3(0.25, 0, sErrHigh)
+          ]);
+          const sErrMat = new THREE.LineBasicMaterial({
+            color: 0x38bdf8, transparent: true, opacity: 0.0
+          });
+          const sErrLine = new THREE.LineSegments(sErrGeo, sErrMat);
+          sdssGroup.add(sErrLine);
+
+          const bridgeGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, z - zSdss)
+          ]);
+          const bridgeMat = new THREE.LineBasicMaterial({
+            color: 0x34d399, transparent: true, opacity: 0.0
+          });
+          const bridgeLine = new THREE.Line(bridgeGeo, bridgeMat);
+          sdssGroup.add(bridgeLine);
+
+          scene.add(sdssGroup);
+          sdssNodes.push({ star, group: sdssGroup, sRing, sRingMat, sErrMat, bridgeLine, bridgeMat });
+        }
+
+        // 6. Floating 3D HTML Callout Pill for Hero Stars
+        let domEl = null;
+        if (star.hero) {
+          domEl = document.createElement('div');
+          domEl.className = 'anchor-3d';
+          const badgeColor = star.type === 'A' ? 'bg-emerald-400' : (star.type === 'S' ? 'bg-pink-400' : 'bg-amber-400');
+          domEl.innerHTML = `
+            <div class="callout-card glass-pill px-3 py-1.5 rounded-xl flex flex-col gap-0.5 min-w-[160px]">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full ${badgeColor}"></span>
+                  <span class="text-[11px] font-medium text-white">${star.label}</span>
+                </div>
+                <span class="mono text-[9.5px] text-white/50">φ₁=${star.phi1}°</span>
+              </div>
+              <div id="callout-sub-${star.rank}" class="mono text-[10px] text-emerald-300/90 mt-0.5">
+                P = ${star.p_v4.toFixed(4)} · ${star.zv}σ
+              </div>
+            </div>
+            <div class="w-[1px] h-3 bg-gradient-to-b from-white/40 to-transparent mx-auto"></div>
+          `;
+          domEl.onclick = () => focusOnStar(star.rank);
+          overlay.appendChild(domEl);
+        }
+
+        tailNodes.push({
+          star, mesh, sphereMat, ring, tether, tetherMat, tetherGeo, errBar, errMat, domEl,
+          springY: new DampedSpring(y, 105, 17),
+          springZ: new DampedSpring(z, 105, 17)
+        });
+      });
+    }
+
+    // ============================================================================
+    // 4. FIVE-STAGE CHOREOGRAPHY CONTROLLERS (v43 -> v47)
+    // ============================================================================
+    function moveDockGlider(index) {
+      const buttons = document.querySelectorAll('#segmented-dock .dock-btn');
+      const glider = document.getElementById('dock-glider');
+      if (!buttons[index] || !glider) return;
+      buttons.forEach((btn, idx) => {
+        btn.classList.toggle('text-white', idx === index);
+        btn.classList.toggle('text-white/55', idx !== index);
+      });
+      const targetBtn = buttons[index];
+      glider.style.width = `${targetBtn.offsetWidth}px`;
+      glider.style.transform = `translateX(${targetBtn.offsetLeft - 4}px)`;
+    }
+
+    function focusOnStar(rank) {
+      const node = tailNodes.find(n => n.star.rank === rank);
+      if (!node) return;
+      state.camTarget.set(node.mesh.position.x, node.springY.target, node.springZ.target);
+      state.camPos.set(node.mesh.position.x + 8, node.springY.target + 5, node.springZ.target + 18);
+      state.camTransitioning = true;
+    }
+
+    function resetCamera() {
+      const idxMap = { v43: 0, v44: 1, v45: 2, v46: 3, v47: 4 };
+      setStage(state.stage, idxMap[state.stage]);
+    }
+
+    function setV43Release(rel) {
+      state.v43Rel = rel;
+      ['v3', 'v4', 'marg'].forEach(k => {
+        const b = document.getElementById('btn-rel-' + k);
+        if (b) {
+          b.className = (k === rel)
+            ? 'mono text-[10px] px-2.5 py-1 rounded-full bg-white/15 text-white transition'
+            : 'mono text-[10px] px-2.5 py-1 rounded-full hover:text-white text-white/55 transition';
+        }
+      });
+
+      tailNodes.forEach(n => {
+        const pVal = rel === 'v3' ? n.star.p_v3 : (rel === 'marg' ? n.star.p_marg : n.star.p_v4);
+        n.springY.target = mapPToY(pVal);
+
+        if (n.star.rank === 1) {
+          const isIn = pVal >= 0.90;
+          const col = isIn ? 0x38bdf8 : 0xf43f5e;
+          n.mesh.material.color.setHex(col);
+          if (n.ring) n.ring.material.color.setHex(col);
+          n.tether.material.color.setHex(col);
+          const sub = document.getElementById('callout-sub-1');
+          if (sub) sub.textContent = `P = ${pVal.toFixed(4)} (${isIn ? 'IN ≥ 0.90' : 'OUT < 0.90'})`;
+        }
+      });
+
+      if (rel === 'v3') {
+        document.getElementById('m1-val').textContent = '0.0043';
+        document.getElementById('m1-sub').textContent = 'Zenodo v3 Nominal';
+        document.getElementById('m2-val').textContent = '0.9106';
+        document.getElementById('m2-tag').textContent = 'IN';
+        document.getElementById('m2-tag').className = 'mono text-[10px] text-cyan-400';
+      } else if (rel === 'marg') {
+        document.getElementById('m1-val').textContent = '0.0035';
+        document.getElementById('m1-sub').textContent = 'Marginal Medians Recon.';
+        document.getElementById('m2-val').textContent = '0.9166';
+        document.getElementById('m2-tag').textContent = 'IN';
+        document.getElementById('m2-tag').className = 'mono text-[10px] text-purple-400';
+      } else {
+        document.getElementById('m1-val').textContent = '0.0539';
+        document.getElementById('m1-sub').textContent = '95% CI [0.0495, 0.0583]';
+        document.getElementById('m2-val').textContent = '0.8940';
+        document.getElementById('m2-tag').textContent = 'OUT';
+        document.getElementById('m2-tag').className = 'mono text-[10px] text-rose-400';
+      }
+    }
+
+    function setV47BinaryFilter(clean) {
+      state.v47BinaryCleaned = clean;
+      document.getElementById('btn-v47-clean').className = clean
+        ? 'mono text-[10px] px-2.5 py-1 rounded-full bg-violet-500/25 border border-violet-400/40 text-violet-200 transition'
+        : 'mono text-[10px] px-2.5 py-1 rounded-full hover:text-white text-white/55 transition';
+      document.getElementById('btn-v47-raw').className = !clean
+        ? 'mono text-[10px] px-2.5 py-1 rounded-full bg-amber-500/25 border border-amber-400/40 text-amber-200 transition'
+        : 'mono text-[10px] px-2.5 py-1 rounded-full hover:text-white text-white/55 transition';
+
+      state.binaryNodeScale.target = clean ? 0.08 : 1.0;
+      const b = NIBAUER_BINS;
+      const k = clean ? 'clean' : 'raw';
+      if (state.stage === 'v47') {
+        document.getElementById('m1-val').textContent = b[0][k].toFixed(2) + ' km/s';
+        document.getElementById('m1-sub').textContent = clean ? 'raw 2.33 · −19.6%' : 'raw DESI DR2';
+        document.getElementById('m2-val').textContent = b[1][k].toFixed(2) + ' km/s';
+        document.getElementById('m2-tag').textContent = 'HOTTEST';
+        document.getElementById('m2-tag').className = 'mono text-[10px] text-rose-400';
+        document.getElementById('m2-sub').textContent = clean ? 'raw 3.32 · −17.9%' : 'raw DESI DR2';
+        document.getElementById('m3-badge').textContent = b[2][k].toFixed(2) + ' km/s';
+        document.getElementById('m3-sub').textContent = clean ? 'raw 1.73 · −9.1%' : 'raw DESI DR2';
+        // Illustrative background: rescale simulated velocities to the raw or cleaned bin dispersion
+        streamGeo.userData.meta.forEach((m, i) => {
+          const bb = binFor(m.phi1);
+          streamTargetZ[i] = mapVelToZ(-0.285 + (m.dv + 0.285) * (bb[k] / bb.clean));
+        });
+      }
+    }
+
+    function setStage(stageKey, btnIdx) {
+      state.stage = stageKey;
+      moveDockGlider(btnIdx);
+
+      document.getElementById('ctrl-v43').className = stageKey === 'v43' ? 'flex items-center gap-1.5' : 'hidden';
+      document.getElementById('ctrl-v46').className = stageKey === 'v46' ? 'flex items-center gap-3' : 'hidden';
+      document.getElementById('ctrl-v47').className = stageKey === 'v47' ? 'flex items-center gap-2' : 'hidden';
+      document.getElementById('ctrl-info').className = (stageKey === 'v44' || stageKey === 'v45') ? 'flex items-center gap-3 mono text-[10px] text-white/60' : 'hidden';
+
+      const meta = streamGeo.userData.meta;
+      state.binaryNodeScale.target = 1.0;
+      meta.forEach((m, i) => { streamTargetZ[i] = mapVelToZ(m.dv); });
+
+      if (stageKey === 'v43') {
+        state.planeY.target = mapPToY(0.90);
+        state.planeOpacity.target = 0.92;
+        state.sdssOpacity.target = 0.0;
+        state.mondOpacity.target = 0.0;
+        cutPlaneMat.uniforms.uColor.value.setHex(0xf43f5e);
+
+        state.camPos.set(-10, mapPToY(0.90) + 2.2, 28);
+        state.camTarget.set(mapPhiToX(-32.93) * 0.5, mapPToY(0.90), mapVelToZ(-12));
+        state.camTransitioning = true;
+
+        document.getElementById('stage-dot').className = 'w-1.5 h-1.5 rounded-full bg-rose-400 shadow-[0_0_8px_#fb7185]';
+        document.getElementById('stage-eyebrow').textContent = 'STAGE 01 // v43 CATALOG BOUNDARY AUDIT';
+        document.getElementById('stage-title').textContent = 'The 0.90 Step-Function Cliff';
+        document.getElementById('stage-subtitle').textContent =
+          'Five stars cross membership boundaries between Zenodo v3 and v4. Star 28 (−3.56σ) shifts by ΔP = −0.0166 (0.9106 → 0.8940), moving the hard-cut tail p-value 12.5× (0.0043 → 0.0539) across α = 0.05.';
+
+        document.getElementById('m1-label').textContent = 'GLOBAL P-VALUE';
+        document.getElementById('m2-label').textContent = 'STAR 28 P_THIN';
+        document.getElementById('m2-sub').textContent = 'z_v = −3.56σ · z_tan = 0.65σ';
+        document.getElementById('m3-label').textContent = 'EPISTEMIC STATUS';
+        document.getElementById('m3-badge').textContent = 'THRESHOLD FRAGILE';
+        document.getElementById('m3-badge').className = 'mono text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30';
+        document.getElementById('m3-sub').textContent = '5 Boundary-Crossing Stars';
+        document.getElementById('ax-y').textContent = 'Y // THIN-STREAM PROBABILITY P_THIN (0 → 1)';
+
+        meta.forEach((m, i) => { streamTargetY[i] = mapPToY(m.pVal); });
+        tailNodes.forEach(n => { n.springZ.target = mapVelToZ(n.star.dv_desi); });
+        setV43Release(state.v43Rel);
+
+      } else if (stageKey === 'v44') {
+        state.planeY.target = mapPToY(0.90);
+        state.planeOpacity.target = 0.12;
+        state.sdssOpacity.target = 0.0;
+        state.mondOpacity.target = 0.0;
+
+        state.camPos.set(0, 18, 48);
+        state.camTarget.set(0, 0, 0);
+        state.camTransitioning = true;
+
+        document.getElementById('stage-dot').className = 'w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]';
+        document.getElementById('stage-eyebrow').textContent = 'STAGE 02 // v44 CONTINUOUS SCORE & SPATIAL AUDIT';
+        document.getElementById('stage-title').textContent = 'Stream-Wide Tail Excess & Spatial Isolation';
+        document.getElementById('stage-subtitle').textContent =
+          'Continuous posterior weighting T_cont = ∑ P_thin max(0, z² − 2.5²) stabilizes the excess (T_obs = 27.82, p = 0.0012; p = 0.0113 without Star 28). Spatial permutation (p_spatial = 1.0) shows the 14 tail stars are not clustered along φ₁. This tests tail stars only; see Stage 5 for dispersion by bin.';
+
+        document.getElementById('m1-label').textContent = 'CONTINUOUS T_CONT';
+        document.getElementById('m1-val').textContent = '27.82';
+        document.getElementById('m1-sub').textContent = 'p = 0.0012 (Excl. 28: p = 0.0113)';
+        document.getElementById('m2-label').textContent = 'SPATIAL PERMUTATION';
+        document.getElementById('m2-val').textContent = '1.0000';
+        document.getElementById('m2-tag').textContent = 'UNIFORM';
+        document.getElementById('m2-tag').className = 'mono text-[10px] text-cyan-400';
+        document.getElementById('m2-sub').textContent = 'Tail stars not clustered in φ₁';
+        document.getElementById('m3-label').textContent = 'COUNT CALIBRATION';
+        document.getElementById('m3-badge').textContent = 'RECONCILED (p_N = 0.54)';
+        document.getElementById('m3-badge').className = 'mono text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-cyan-400/15 text-cyan-300 border border-cyan-400/30';
+        document.getElementById('m3-sub').textContent = 'N_obs = 316 inside [309, 329]';
+
+        document.getElementById('ctrl-info-text').textContent = 'Spatial Overdispersion σ_π = 0.1536 (35% Purity at −33° Gap vs 83% Western Core)';
+        document.getElementById('ax-y').textContent = 'Y // CONTINUOUS POSTERIOR WEIGHT P_THIN (0 → 1)';
+
+        meta.forEach((m, i) => { streamTargetY[i] = mapPToY(m.pVal); });
+        tailNodes.forEach(n => {
+          n.springY.target = mapPToY(n.star.p_v4);
+          n.springZ.target = mapVelToZ(n.star.dv_desi);
+          const col = 0x38bdf8;
+          n.mesh.material.color.setHex(col);
+          if (n.ring) n.ring.material.color.setHex(col);
+          n.tether.material.color.setHex(col);
+          const sub = document.getElementById(`callout-sub-${n.star.rank}`);
+          if (sub) sub.textContent = `T_i = ${n.star.ti.toFixed(2)} (${n.star.pct}% of T_cont)`;
+        });
+
+      } else if (stageKey === 'v45') {
+        state.planeY.target = mapZTanToY(1.70);
+        state.planeOpacity.target = 0.65;
+        state.sdssOpacity.target = 0.0;
+        state.mondOpacity.target = 0.0;
+        cutPlaneMat.uniforms.uColor.value.setHex(0x34d399);
+
+        state.camPos.set(38, 4, 24);
+        state.camTarget.set(0, -1, 0);
+        state.camTransitioning = true;
+
+        document.getElementById('stage-dot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
+        document.getElementById('stage-eyebrow').textContent = 'STAGE 03 // v45 VELOCITY ANISOTROPY & TAXONOMY';
+        document.getElementById('stage-title').textContent = '6.2× Radial Dominance (R_aniso = 0.1613)';
+        document.getElementById('stage-subtitle').textContent =
+          'Cross-matching DESI DR2 radial velocities with Gaia DR3 proper motions reveals <z_v²> = 11.21 vs <z_tan²/2> = 1.81. Nine Type A stars (green, 78.5% of tail score) have cold proper motions (z_tan ≤ 1.36σ), making them candidate binaries. Without them the residual tail is consistent with noise (p = 0.7727); note the selection itself uses LOS extremeness.';
+
+        document.getElementById('m1-label').textContent = 'ANISOTROPY RATIO R';
+        document.getElementById('m1-val').textContent = '0.1613';
+        document.getElementById('m1-sub').textContent = 'LOS spread 6.2× proper-motion spread';
+        document.getElementById('m2-label').textContent = 'CANDIDATE BINARIES (9)';
+        document.getElementById('m2-val').textContent = '78.5%';
+        document.getElementById('m2-tag').textContent = 'RUWE 1.01';
+        document.getElementById('m2-tag').className = 'mono text-[10px] text-emerald-400';
+        document.getElementById('m2-sub').textContent = 'All 14 Stars [Fe/H] ≤ −1.81';
+        document.getElementById('m3-label').textContent = 'RESIDUAL NULL P';
+        document.getElementById('m3-badge').textContent = 'p_res = 0.7727 (NULL)';
+        document.getElementById('m3-badge').className = 'mono text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-emerald-400/15 text-emerald-300 border border-emerald-400/30';
+        document.getElementById('m3-sub').textContent = 'T_res = 5.99 vs Null 9.67 ± 4.70';
+
+        document.getElementById('ctrl-info-text').textContent = 'Green: 9 Type A candidate binaries (z_tan ≤ 1.36σ) · Amber: 5 Type B, likely cocoon (z_tan ≥ 2.05σ)';
+        document.getElementById('ax-y').textContent = 'Y // GAIA 2D PROPER MOTION OFFSET z_tan (σ) [Cut = 1.7σ]';
+
+        meta.forEach((m, i) => { streamTargetY[i] = mapZTanToY(m.ztan); });
+        tailNodes.forEach(n => {
+          n.springY.target = mapZTanToY(n.star.ztan);
+          n.springZ.target = mapVelToZ(n.star.dv_desi);
+          const col = n.star.type === 'A' ? 0x34d399 : (n.star.type === 'S' ? 0xf472b6 : 0xfbbf24);
+          n.mesh.material.color.setHex(col);
+          if (n.ring) n.ring.material.color.setHex(col);
+          n.tether.material.color.setHex(col);
+          const sub = document.getElementById(`callout-sub-${n.star.rank}`);
+          if (sub) sub.textContent = `|z_v|=${Math.abs(n.star.zv)}σ · z_tan=${n.star.ztan}σ · [Fe/H]=${n.star.feh}`;
+        });
+
+      } else if (stageKey === 'v46') {
+        state.planeY.target = mapPToY(0.90);
+        state.planeOpacity.target = 0.08;
+        state.sdssOpacity.target = 0.95;
+        state.mondOpacity.target = 0.0;
+
+        state.camPos.set(mapPhiToX(-33.5), mapPToY(0.70) + 3, 40);
+        state.camTarget.set(mapPhiToX(-33.5), mapPToY(0.68), 0);
+        state.camTransitioning = true;
+
+        document.getElementById('stage-dot').className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]';
+        document.getElementById('stage-eyebrow').textContent = 'STAGE 04 // v46 TWO-EPOCH CHECK: SDSS DR17 → DESI DR2';
+        document.getElementById('stage-title').textContent = 'Velocity Changes Between SDSS and DESI';
+        document.getElementById('stage-subtitle').textContent =
+          'Two measurements per star, calibrated for the SDSS→DESI offset (+4.06 km/s) and scatter (6.98 km/s). Independently recovered candidate binary near the spur (pink) changed by +28.6 km/s (≈3.5σ, matching the ~30 km/s variable in Nibauer et al. 2026), sitting close to the track in DESI. Outlier 13, mostly cocoon, changed by +20.6 km/s (≈2.4σ); Star 4 by −5.8 km/s (≈1.4σ). Star 28 and Cocoon 9 show no detectable change.';
+
+        document.getElementById('m1-label').textContent = 'SPUR STAR 2011→2021';
+        document.getElementById('m1-val').textContent = '+28.64 km/s';
+        document.getElementById('m1-sub').textContent = '≈3.5σ calibrated · P_thin = 0.961';
+        document.getElementById('m2-label').textContent = 'OUTLIER 13 2016→2021';
+        document.getElementById('m2-val').textContent = '+20.60 km/s';
+        document.getElementById('m2-tag').textContent = '≈2.4σ';
+        document.getElementById('m2-tag').className = 'mono text-[10px] text-emerald-400';
+        document.getElementById('m2-sub').textContent = 'Mostly cocoon (P_cocoon = 0.67)';
+        document.getElementById('m3-label').textContent = 'STAR 4 2009→2021';
+        document.getElementById('m3-badge').textContent = '≈1.4σ SUGGESTIVE';
+        document.getElementById('m3-badge').className = 'mono text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30';
+        document.getElementById('m3-sub').textContent = 'ΔV = −5.79 ± 2.44 km/s (raw)';
+
+        document.getElementById('ax-y').textContent = 'Y // THIN-STREAM PROBABILITY P_THIN · rings = SDSS, spheres = DESI';
+
+        meta.forEach((m, i) => { streamTargetY[i] = mapPToY(m.pVal); });
+        tailNodes.forEach(n => {
+          n.springY.target = mapPToY(n.star.p_v4);
+          const col = n.star.type === 'A' ? 0x34d399 : (n.star.type === 'S' ? 0xf472b6 : 0xfbbf24);
+          n.mesh.material.color.setHex(col);
+          if (n.ring) n.ring.material.color.setHex(col);
+          n.tether.material.color.setHex(col);
+        });
+        updateEpochInterpolation(state.epochYr);
+
+      } else if (stageKey === 'v47') {
+        state.planeY.target = mapPToY(0.50);
+        state.planeOpacity.target = 0.14;
+        state.sdssOpacity.target = 0.0;
+        state.mondOpacity.target = 0.92;
+        cutPlaneMat.uniforms.uColor.value.setHex(0x8b5cf6);
+
+        state.camPos.set(0, 14, 42);
+        state.camTarget.set(mapPhiToX(-30.0) * 0.35, mapPToY(0.82), 0);
+        state.camTransitioning = true;
+
+        document.getElementById('stage-dot').className = 'w-1.5 h-1.5 rounded-full bg-violet-400 shadow-[0_0_8px_#a78bfa]';
+        document.getElementById('stage-eyebrow').textContent = 'STAGE 05 // v47 BIN-BY-BIN COMPARISON WITH NIBAUER ET AL. (2026)';
+        document.getElementById('stage-title').textContent = 'The Spur Stays the Hottest Part of the Stream';
+        document.getElementById('stage-subtitle').textContent =
+          'Same three φ₁ bins as Nibauer et al. (2026). Removing the 9 candidate binaries lowers every bin, but the spur bin [−40°, −20°] stays hottest. That could be subhalo heating, cocoon stars, or hidden binaries like the pink spur star, which is still in the sample. Background stars here are simulated from these dispersions.';
+
+        document.getElementById('m1-label').textContent = 'TRAILING [−60°, −40°]';
+        document.getElementById('m2-label').textContent = 'SPUR [−40°, −20°]';
+        document.getElementById('m3-label').textContent = 'LEADING [−20°, 0°]';
+        document.getElementById('m3-badge').className = 'mono text-[10.5px] font-medium px-2.5 py-0.5 rounded-full bg-violet-400/15 text-violet-300 border border-violet-400/30';
+        document.getElementById('ax-y').textContent = 'Y // THIN-STREAM PROBABILITY P_THIN · planes mark bin edges at φ₁ = −40° and −20°';
+
+        meta.forEach((m, i) => { streamTargetY[i] = mapPToY(m.pVal); });
+        tailNodes.forEach(n => {
+          n.springY.target = mapPToY(n.star.p_v4);
+          n.springZ.target = mapVelToZ(n.star.dv_desi);
+          const sub = document.getElementById(`callout-sub-${n.star.rank}`);
+          if (sub) {
+            sub.textContent = n.star.type === 'A'
+              ? `Candidate binary (removed)`
+              : (n.star.type === 'S' ? `Variable star (still in sample)` : `Type B, likely cocoon (kept)`);
+          }
+        });
+        setV47BinaryFilter(state.v47BinaryCleaned);
+      }
+    }
+
+    // Exact Epoch Interpolation between each star's true SDSS observation date and DESI DR2 date
+    function updateEpochInterpolation(yr) {
+      state.epochYr = yr;
+      document.getElementById('epoch-readout').textContent = yr.toFixed(1);
+      document.getElementById('epoch-slider').value = yr;
+
+      tailNodes.forEach(n => {
+        const s = n.star;
+        if (s.has_sdss) {
+          // Only two measurements exist: show the SDSS value until the DESI epoch, then the DESI value.
+          const isDesi = yr >= s.yr_desi;
+          const curDv = isDesi ? s.dv_desi : s.dv_sdss;
+          n.springZ.target = mapVelToZ(curDv);
+
+          const sub = document.getElementById(`callout-sub-${s.rank}`);
+          if (sub) {
+            const ep = isDesi ? 'DESI ' + s.yr_desi.toFixed(0) : 'SDSS ' + s.yr_sdss.toFixed(0);
+            sub.textContent = `${ep}: ${curDv >= 0 ? '+' : ''}${curDv.toFixed(2)} km/s · shift ${s.shift_sig}`;
+          }
+        } else {
+          n.springZ.target = mapVelToZ(s.dv_desi);
+          const sub = document.getElementById(`callout-sub-${s.rank}`);
+          if (sub) sub.textContent = 'DESI only · no SDSS spectrum';
+        }
+      });
+    }
+
+    function toggleEpochPlay() {
+      state.playingEpoch = !state.playingEpoch;
+      document.getElementById('btn-play-epoch').textContent = state.playingEpoch ? '❚❚' : '▶';
+    }
+
+    function onScrubEpoch(val) {
+      state.playingEpoch = false;
+      document.getElementById('btn-play-epoch').textContent = '▶';
+      updateEpochInterpolation(parseFloat(val));
+    }
+
+    // ============================================================================
+    // 5. MAIN ANIMATION & CRITICALLY DAMPED SPRING LOOP
+    // ============================================================================
+    let prevNow = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.04, (now - prevNow) * 0.001);
+      prevNow = now;
+      const tSec = now * 0.001;
+
+      // 1. Step Global Scene Springs
+      cutPlaneMesh.position.y = state.planeY.step(dt);
+      cutPlaneMat.uniforms.uOpacity.value = state.planeOpacity.step(dt);
+
+      const sdssOp = state.sdssOpacity.step(dt);
+      const mondOp = state.mondOpacity.step(dt);
+      const tubeScale = state.tubeRadiusScale.step(dt);
+      const binScale = state.binaryNodeScale.step(dt);
+
+      mondSplitMat.uniforms.uOpacity.value = mondOp;
+      dispersionTubeMat.uniforms.uOpacity.value = 0.0; // single global tube hidden: dispersion differs by bin
+      dispersionTubeMesh.scale.set(1, tubeScale, tubeScale);
+
+      // 2. Auto-Scrub Timeline in Stage 4 (v46)
+      if (state.stage === 'v46' && state.playingEpoch) {
+        const cyc = 0.5 + 0.5 * Math.sin(tSec * 1.15);
+        updateEpochInterpolation(2004.0 + cyc * 18.0);
+      }
+
+      // 3. Smoothly Morph Background Stream Cloud Y Axis
+      const pArr = streamGeo.attributes.position.array;
+      let streamDirty = false;
+      for (let i = 0; i < streamTargetY.length; i++) {
+        const idxY = i * 3 + 1;
+        const diff = streamTargetY[i] - pArr[idxY];
+        if (Math.abs(diff) > 0.002) {
+          pArr[idxY] += diff * 0.11;
+          streamDirty = true;
+        }
+      }
+      for (let i = 0; i < streamTargetZ.length; i++) {
+        const idxZ = i * 3 + 2;
+        const dz = streamTargetZ[i] - pArr[idxZ];
+        if (Math.abs(dz) > 0.002) { pArr[idxZ] += dz * 0.11; streamDirty = true; }
+      }
+      if (streamDirty) streamGeo.attributes.position.needsUpdate = true;
+
+      // 4. Update 14 Empirical Tail Nodes & 3D Floating Callouts
+      const halfW = window.innerWidth * 0.5;
+      const halfH = window.innerHeight * 0.5;
+
+      tailNodes.forEach(n => {
+        const curY = n.springY.step(dt);
+        const curZ = n.springZ.step(dt);
+        n.mesh.position.y = curY;
+        n.mesh.position.z = curZ;
+
+        // In Stage 5 (v47), smoothly shrink/ghost the 9 Type A binaries when Binary-Cleaned is active
+        const isSubtractedBinary = (state.stage === 'v47') && (n.star.type === 'A');
+        // The spur star is not a tail star: only shown in the SDSS->DESI and bin stages
+        const showNode = n.star.type !== 'S' || state.stage === 'v46' || state.stage === 'v47';
+        n.mesh.visible = showNode; n.tether.visible = showNode;
+        const nodeScale = isSubtractedBinary ? Math.max(0.01, binScale) : 1.0;
+        n.mesh.scale.setScalar(nodeScale);
+        n.sphereMat.opacity = isSubtractedBinary ? Math.max(0.12, binScale) : 1.0;
+        n.tetherMat.opacity = isSubtractedBinary ? binScale * 0.35 : 0.42;
+        n.errMat.opacity = isSubtractedBinary ? binScale * 0.35 : 0.45;
+
+        if (n.ring) {
+          n.ring.lookAt(camera.position);
+          const s = 1.0 + 0.1 * Math.sin(tSec * 3.0 + n.star.rank);
+          n.ring.scale.set(s, s, 1);
+        }
+
+        // Update 1D radial kick tether line from Z=0 to current Z
+        const tPos = n.tetherGeo.attributes.position;
+        tPos.setY(0, curY);
+        tPos.setZ(0, 0);
+        tPos.setY(1, curY);
+        tPos.setZ(1, curZ);
+        tPos.needsUpdate = true;
+
+        // Project Hero Callout to 2D Screen Coordinates
+        if (n.domEl) {
+          const proj = n.mesh.position.clone().project(camera);
+          if (!showNode) {
+            n.domEl.style.opacity = '0';
+          } else if (proj.z > 1.0 || (isSubtractedBinary && binScale < 0.25)) {
+            n.domEl.style.opacity = isSubtractedBinary ? '0.22' : '0';
+          } else {
+            const sx = (proj.x * halfW) + halfW;
+            const sy = -(proj.y * halfH) + halfH;
+            n.domEl.style.left = `${sx.toFixed(1)}px`;
+            n.domEl.style.top = `${(sy - 10).toFixed(1)}px`;
+            n.domEl.style.opacity = '1';
+          }
+        }
+      });
+
+      // 5. Update SDSS DR17 Archival Ghost Nodes & Displacement Bridges
+      sdssNodes.forEach(sn => {
+        const parentNode = tailNodes.find(n => n.star.rank === sn.star.rank);
+        if (parentNode) {
+          sn.group.position.y = parentNode.mesh.position.y;
+          sn.sRing.lookAt(camera.position);
+        }
+        const vis = sn.star.type !== 'S' || state.stage === 'v46';
+        sn.group.visible = vis;
+        sn.sRingMat.opacity = sdssOp * 0.85;
+        sn.sErrMat.opacity = sdssOp * 0.65;
+        sn.bridgeMat.opacity = sdssOp * 0.75;
+      });
+
+      // 6. Camera Choreography
+      if (state.camTransitioning) {
+        camera.position.lerp(state.camPos, 0.065);
+        controls.target.lerp(state.camTarget, 0.075);
+        if (camera.position.distanceTo(state.camPos) < 0.2) {
+          state.camTransitioning = false;
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      if (!camera || !renderer) return;
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.onload = () => {
+      initWebGL();
+      requestAnimationFrame(animate);
+    };
+  </script>
+</body>
+</html>
